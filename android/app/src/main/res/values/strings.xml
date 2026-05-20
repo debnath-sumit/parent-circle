@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ParentCircle</string>
+    <string name="title_activity_main">ParentCircle</string>
+    <string name="package_name">com.parentcircle.app</string>
+    <string name="custom_url_scheme">com.parentcircle.app</string>
+</resources>
