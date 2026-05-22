@@ -90,6 +90,7 @@ create table if not exists public.items (
   condition text check (condition in ('new', 'like-new', 'good', 'fair')),
   location text,
   image_urls text[] not null default '{}',
+  price numeric(10,2) check (price is null or price >= 0),
   status text not null default 'available' check (status in ('available', 'reserved', 'taken')),
   created_at timestamptz not null default now()
 );

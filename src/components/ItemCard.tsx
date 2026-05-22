@@ -34,9 +34,16 @@ export function ItemCard({ item }: { item: Item }) {
         <h3 className="text-sm font-semibold leading-snug">{item.title}</h3>
         <span className="chip">{postTypeLabels[item.post_type]}</span>
       </div>
-      <div className="mt-1 flex items-center gap-2 text-xs text-slate-500">
-        <span>{item.category}</span>
-        {item.location ? <span>· {item.location}</span> : null}
+      <div className="mt-1 flex items-center justify-between gap-2 text-xs text-slate-500">
+        <div className="flex items-center gap-2">
+          <span>{item.category}</span>
+          {item.location ? <span>· {item.location}</span> : null}
+        </div>
+        {item.post_type === 'sell' && item.price != null ? (
+          <span className="font-semibold text-brand-600">
+            ${Number(item.price).toFixed(2)}
+          </span>
+        ) : null}
       </div>
     </Link>
   );

@@ -54,7 +54,14 @@ export default async function ItemDetailPage({ params }: { params: { id: string 
           {item.age_group !== 'any' ? <span className="chip">{item.age_group}</span> : null}
         </div>
 
-        <h1 className="mt-3 text-2xl font-semibold tracking-tight">{item.title}</h1>
+        <div className="mt-3 flex items-baseline justify-between gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight">{item.title}</h1>
+          {item.post_type === 'sell' && item.price != null ? (
+            <span className="text-2xl font-semibold text-brand-600">
+              ${Number(item.price).toFixed(2)}
+            </span>
+          ) : null}
+        </div>
         {item.location ? (
           <p className="text-sm text-slate-500">📍 {item.location}</p>
         ) : null}

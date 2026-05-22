@@ -37,6 +37,7 @@ export interface Item {
   condition: ItemCondition | null;
   location: string | null;
   image_urls: string[];
+  price: number | null;
   status: ItemStatus;
   created_at: string;
 }

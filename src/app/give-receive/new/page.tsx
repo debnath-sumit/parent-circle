@@ -38,6 +38,7 @@ export default function NewItemPage() {
   const [ageGroup, setAgeGroup] = useState<ItemAgeGroup>('any');
   const [condition, setCondition] = useState<ItemCondition>('good');
   const [location, setLocation] = useState('');
+  const [price, setPrice] = useState('');
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,6 +85,17 @@ export default function NewItemPage() {
       return;
     }
 
+    let priceValue: number | null = null;
+    if (postType === 'sell') {
+      const parsed = Number(price);
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        setError('Enter a price greater than 0.');
+        setBusy(false);
+        return;
+      }
+      priceValue = Math.round(parsed * 100) / 100;
+    }
+
     const imageUrls: string[] = [];
     for (const file of files) {
       const path = `items/${user.id}/${Date.now()}-${imageUrls.length}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
@@ -109,6 +121,7 @@ export default function NewItemPage() {
         condition,
         location,
         image_urls: imageUrls,
+        price: priceValue,
         status: 'available'
       })
       .select()
@@ -223,6 +236,30 @@ export default function NewItemPage() {
             onChange={(e) => setLocation(e.target.value)}
           />
         </div>
+        {postType === 'sell' ? (
+          <div>
+            <label className="label" htmlFor="price">
+              Proposed price (USD)
+            </label>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
+                $
+              </span>
+              <input
+                id="price"
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.01"
+                required
+                placeholder="25.00"
+                className="input pl-7"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+              />
+            </div>
+          </div>
+        ) : null}
         <div>
           <div className="flex items-center justify-between">
             <label className="label" htmlFor="image">
