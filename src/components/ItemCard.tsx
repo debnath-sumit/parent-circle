@@ -5,10 +5,12 @@ const postTypeLabels: Record<Item['post_type'], string> = {
   giveaway: 'Give away',
   borrow: 'Borrow',
   exchange: 'Exchange',
-  sell: 'Sell'
+  sell: 'Sell',
+  request: 'Looking for'
 };
 
 export function ItemCard({ item }: { item: Item }) {
+  const isRequest = item.post_type === 'request';
   return (
     <Link href={`/give-receive/${item.id}`} className="card block hover:border-brand-200">
       {item.image_urls && item.image_urls.length > 0 ? (
@@ -26,13 +28,21 @@ export function ItemCard({ item }: { item: Item }) {
           ) : null}
         </div>
       ) : (
-        <div className="mb-3 grid h-40 w-full place-items-center rounded-xl bg-brand-50 text-4xl">
-          🎁
+        <div
+          className={`mb-3 grid h-40 w-full place-items-center rounded-xl text-4xl ${
+            isRequest ? 'bg-amber-50' : 'bg-brand-50'
+          }`}
+        >
+          {isRequest ? '🙋' : '🎁'}
         </div>
       )}
       <div className="flex items-start justify-between gap-2">
         <h3 className="text-sm font-semibold leading-snug">{item.title}</h3>
-        <span className="chip">{postTypeLabels[item.post_type]}</span>
+        <span
+          className={`chip ${isRequest ? 'bg-amber-100 text-amber-800' : ''}`}
+        >
+          {postTypeLabels[item.post_type]}
+        </span>
       </div>
       <div className="mt-1 flex items-center justify-between gap-2 text-xs text-slate-500">
         <div className="flex items-center gap-2">
@@ -42,6 +52,11 @@ export function ItemCard({ item }: { item: Item }) {
         {item.post_type === 'sell' && item.price != null ? (
           <span className="font-semibold text-brand-600">
             ${Number(item.price).toFixed(2)}
+          </span>
+        ) : null}
+        {isRequest && item.price != null ? (
+          <span className="font-semibold text-amber-700">
+            up to ${Number(item.price).toFixed(2)}
           </span>
         ) : null}
       </div>

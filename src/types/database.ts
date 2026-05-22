@@ -1,6 +1,6 @@
 export type AgeGroup = 'baby' | 'kid' | 'teen';
 export type ItemAgeGroup = AgeGroup | 'any';
-export type PostType = 'giveaway' | 'borrow' | 'exchange' | 'sell';
+export type PostType = 'giveaway' | 'borrow' | 'exchange' | 'sell' | 'request';
 export type ItemStatus = 'available' | 'reserved' | 'taken';
 export type ItemCondition = 'new' | 'like-new' | 'good' | 'fair';
 
@@ -55,7 +55,8 @@ export interface CommunityPost {
 
 export interface Comment {
   id: string;
-  post_id: string;
+  post_id: string | null;
+  item_id: string | null;
   author_id: string;
   body: string;
   created_at: string;

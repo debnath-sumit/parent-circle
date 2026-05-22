@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { PhotoGallery } from '@/components/PhotoGallery';
+import { ItemComments } from './ItemComments';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,7 +10,8 @@ const postTypeLabels: Record<string, string> = {
   giveaway: 'Give away',
   borrow: 'Borrow',
   exchange: 'Exchange',
-  sell: 'Sell'
+  sell: 'Sell',
+  request: 'Looking for'
 };
 
 export default async function ItemDetailPage({ params }: { params: { id: string } }) {
@@ -31,6 +33,7 @@ export default async function ItemDetailPage({ params }: { params: { id: string 
     data: { user }
   } = await supabase.auth.getUser();
   const isOwner = user?.id === item.owner_id;
+  const isRequest = item.post_type === 'request';
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 py-2">
@@ -42,15 +45,23 @@ export default async function ItemDetailPage({ params }: { params: { id: string 
         {item.image_urls && item.image_urls.length > 0 ? (
           <PhotoGallery urls={item.image_urls} alt={item.title} />
         ) : (
-          <div className="mb-4 grid h-72 w-full place-items-center rounded-xl bg-brand-50 text-6xl">
-            🎁
+          <div
+            className={`mb-4 grid h-72 w-full place-items-center rounded-xl text-6xl ${
+              isRequest ? 'bg-amber-50' : 'bg-brand-50'
+            }`}
+          >
+            {isRequest ? '🙋' : '🎁'}
           </div>
         )}
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="chip">{postTypeLabels[item.post_type]}</span>
+          <span
+            className={`chip ${isRequest ? 'bg-amber-100 text-amber-800' : ''}`}
+          >
+            {postTypeLabels[item.post_type]}
+          </span>
           <span className="chip">{item.category}</span>
-          {item.condition ? <span className="chip">{item.condition}</span> : null}
+          {!isRequest && item.condition ? <span className="chip">{item.condition}</span> : null}
           {item.age_group !== 'any' ? <span className="chip">{item.age_group}</span> : null}
         </div>
 
@@ -59,6 +70,11 @@ export default async function ItemDetailPage({ params }: { params: { id: string 
           {item.post_type === 'sell' && item.price != null ? (
             <span className="text-2xl font-semibold text-brand-600">
               ${Number(item.price).toFixed(2)}
+            </span>
+          ) : null}
+          {isRequest && item.price != null ? (
+            <span className="text-lg font-semibold text-amber-700">
+              up to ${Number(item.price).toFixed(2)}
             </span>
           ) : null}
         </div>
@@ -72,7 +88,7 @@ export default async function ItemDetailPage({ params }: { params: { id: string 
 
         <div className="mt-6 flex items-center justify-between border-t border-slate-200 pt-4">
           <div className="text-sm">
-            <p className="text-slate-500">Shared by</p>
+            <p className="text-slate-500">{isRequest ? 'Requested by' : 'Shared by'}</p>
             <p className="font-medium">
               {owner?.name ?? 'A parent'}
               {owner?.city ? ` · ${owner.city}` : ''}
@@ -80,12 +96,14 @@ export default async function ItemDetailPage({ params }: { params: { id: string 
           </div>
           {!isOwner && user && owner ? (
             <Link href={`/messages/${owner.id}`} className="btn-primary">
-              Message
+              {isRequest ? 'I have this — message' : 'Message'}
             </Link>
           ) : null}
           {isOwner ? <span className="chip">Your post</span> : null}
         </div>
       </div>
+
+      <ItemComments itemId={item.id} isRequest={isRequest} />
     </div>
   );
 }

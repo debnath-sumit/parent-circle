@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { ItemAgeGroup, ItemCondition, PostType } from '@/types/database';
+
+const VALID_POST_TYPES: PostType[] = ['giveaway', 'borrow', 'exchange', 'sell', 'request'];
 
 const MAX_PHOTOS = 10;
 
@@ -12,7 +14,8 @@ const POST_TYPES: { value: PostType; label: string }[] = [
   { value: 'giveaway', label: 'Give away' },
   { value: 'borrow', label: 'Lend / Borrow' },
   { value: 'exchange', label: 'Exchange' },
-  { value: 'sell', label: 'Sell' }
+  { value: 'sell', label: 'Sell' },
+  { value: 'request', label: 'Looking for' }
 ];
 const AGE_GROUPS: { value: ItemAgeGroup; label: string }[] = [
   { value: 'any', label: 'Any age' },
@@ -29,11 +32,15 @@ const CONDITIONS: { value: ItemCondition; label: string }[] = [
 
 export default function NewItemPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
+  const initialType = searchParams.get('type') as PostType | null;
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [postType, setPostType] = useState<PostType>('giveaway');
+  const [postType, setPostType] = useState<PostType>(
+    initialType && VALID_POST_TYPES.includes(initialType) ? initialType : 'giveaway'
+  );
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [ageGroup, setAgeGroup] = useState<ItemAgeGroup>('any');
   const [condition, setCondition] = useState<ItemCondition>('good');
@@ -94,6 +101,14 @@ export default function NewItemPage() {
         return;
       }
       priceValue = Math.round(parsed * 100) / 100;
+    } else if (postType === 'request' && price.trim() !== '') {
+      const parsed = Number(price);
+      if (!Number.isFinite(parsed) || parsed < 0) {
+        setError('Enter a budget of 0 or more, or leave it blank.');
+        setBusy(false);
+        return;
+      }
+      priceValue = Math.round(parsed * 100) / 100;
     }
 
     const imageUrls: string[] = [];
@@ -137,9 +152,13 @@ export default function NewItemPage() {
 
   return (
     <div className="mx-auto max-w-2xl py-4">
-      <h1 className="text-2xl font-semibold tracking-tight">Share an item</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">
+        {postType === 'request' ? 'Post a request' : 'Share an item'}
+      </h1>
       <p className="text-sm text-slate-500">
-        Give a stroller, lend a swing, or sell a barely-used crib.
+        {postType === 'request'
+          ? 'Tell the community what you need — someone nearby may have it.'
+          : 'Give a stroller, lend a swing, or sell a barely-used crib.'}
       </p>
 
       <form onSubmit={handleSubmit} className="card mt-6 space-y-4">
@@ -236,10 +255,10 @@ export default function NewItemPage() {
             onChange={(e) => setLocation(e.target.value)}
           />
         </div>
-        {postType === 'sell' ? (
+        {postType === 'sell' || postType === 'request' ? (
           <div>
             <label className="label" htmlFor="price">
-              Proposed price (USD)
+              {postType === 'sell' ? 'Proposed price (USD)' : 'Willing to pay (optional)'}
             </label>
             <div className="relative">
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">
@@ -251,13 +270,18 @@ export default function NewItemPage() {
                 inputMode="decimal"
                 min="0"
                 step="0.01"
-                required
-                placeholder="25.00"
+                required={postType === 'sell'}
+                placeholder={postType === 'sell' ? '25.00' : 'Leave blank if free'}
                 className="input pl-7"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
               />
             </div>
+            {postType === 'request' ? (
+              <p className="mt-1 text-xs text-slate-500">
+                Tell community members your budget, or leave blank if you're hoping for a giveaway.
+              </p>
+            ) : null}
           </div>
         ) : null}
         <div>
@@ -303,7 +327,7 @@ export default function NewItemPage() {
         </div>
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
         <button type="submit" disabled={busy} className="btn-primary w-full">
-          {busy ? 'Posting…' : 'Post item'}
+          {busy ? 'Posting…' : postType === 'request' ? 'Post request' : 'Post item'}
         </button>
       </form>
     </div>

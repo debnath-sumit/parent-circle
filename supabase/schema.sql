@@ -82,7 +82,7 @@ create policy "Parent can manage own children"
 create table if not exists public.items (
   id uuid primary key default uuid_generate_v4(),
   owner_id uuid not null references public.profiles(id) on delete cascade,
-  post_type text not null check (post_type in ('giveaway', 'borrow', 'exchange', 'sell')),
+  post_type text not null check (post_type in ('giveaway', 'borrow', 'exchange', 'sell', 'request')),
   category text not null,
   title text not null,
   description text,
@@ -156,13 +156,28 @@ create policy "Author can delete posts"
 -- =========================================================================
 create table if not exists public.comments (
   id uuid primary key default uuid_generate_v4(),
-  post_id uuid not null references public.community_posts(id) on delete cascade,
+  post_id uuid references public.community_posts(id) on delete cascade,
+  item_id uuid references public.items(id) on delete cascade,
   author_id uuid not null references public.profiles(id) on delete cascade,
   body text not null,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  constraint comments_target_check check (
+    (post_id is not null and item_id is null)
+    or (post_id is null and item_id is not null)
+  )
+);
+
+-- For projects upgrading from an earlier schema where post_id was NOT NULL.
+alter table public.comments alter column post_id drop not null;
+alter table public.comments add column if not exists item_id uuid references public.items(id) on delete cascade;
+alter table public.comments drop constraint if exists comments_target_check;
+alter table public.comments add constraint comments_target_check check (
+  (post_id is not null and item_id is null)
+  or (post_id is null and item_id is not null)
 );
 
 create index if not exists comments_post_idx on public.comments(post_id);
+create index if not exists comments_item_idx on public.comments(item_id);
 
 alter table public.comments enable row level security;
 
