@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { PhotoGallery } from '@/components/PhotoGallery';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,13 +39,8 @@ export default async function ItemDetailPage({ params }: { params: { id: string 
       </Link>
 
       <div className="card">
-        {item.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={item.image_url}
-            alt={item.title}
-            className="mb-4 h-72 w-full rounded-xl object-cover"
-          />
+        {item.image_urls && item.image_urls.length > 0 ? (
+          <PhotoGallery urls={item.image_urls} alt={item.title} />
         ) : (
           <div className="mb-4 grid h-72 w-full place-items-center rounded-xl bg-brand-50 text-6xl">
             🎁

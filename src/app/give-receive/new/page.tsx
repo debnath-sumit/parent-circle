@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { ItemAgeGroup, ItemCondition, PostType } from '@/types/database';
+
+const MAX_PHOTOS = 10;
 
 const CATEGORIES = ['Stroller', 'Toys', 'Clothes', 'Books', 'Feeding', 'Crib', 'Other'];
 const POST_TYPES: { value: PostType; label: string }[] = [
@@ -36,9 +38,38 @@ export default function NewItemPage() {
   const [ageGroup, setAgeGroup] = useState<ItemAgeGroup>('any');
   const [condition, setCondition] = useState<ItemCondition>('good');
   const [location, setLocation] = useState('');
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const previews = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
+  useEffect(() => {
+    return () => {
+      previews.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [previews]);
+
+  function handleFilesPicked(e: React.ChangeEvent<HTMLInputElement>) {
+    const picked = Array.from(e.target.files ?? []);
+    e.target.value = '';
+    if (!picked.length) return;
+    setFiles((prev) => {
+      const seen = new Set(prev.map((f) => `${f.name}:${f.size}`));
+      const next = [...prev];
+      for (const f of picked) {
+        const key = `${f.name}:${f.size}`;
+        if (seen.has(key)) continue;
+        if (next.length >= MAX_PHOTOS) break;
+        next.push(f);
+        seen.add(key);
+      }
+      return next;
+    });
+  }
+
+  function removeFile(index: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -53,9 +84,9 @@ export default function NewItemPage() {
       return;
     }
 
-    let imageUrl: string | null = null;
-    if (file) {
-      const path = `items/${user.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+    const imageUrls: string[] = [];
+    for (const file of files) {
+      const path = `items/${user.id}/${Date.now()}-${imageUrls.length}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
       const { error: upErr } = await supabase.storage.from('images').upload(path, file);
       if (upErr) {
         setError(upErr.message);
@@ -63,7 +94,7 @@ export default function NewItemPage() {
         return;
       }
       const { data: pub } = supabase.storage.from('images').getPublicUrl(path);
-      imageUrl = pub.publicUrl;
+      imageUrls.push(pub.publicUrl);
     }
 
     const { data, error } = await supabase
@@ -77,7 +108,7 @@ export default function NewItemPage() {
         age_group: ageGroup,
         condition,
         location,
-        image_url: imageUrl,
+        image_urls: imageUrls,
         status: 'available'
       })
       .select()
@@ -193,16 +224,45 @@ export default function NewItemPage() {
           />
         </div>
         <div>
-          <label className="label" htmlFor="image">
-            Photo
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="label" htmlFor="image">
+              Photos
+            </label>
+            <span className="text-xs text-slate-500">
+              {files.length} / {MAX_PHOTOS}
+            </span>
+          </div>
           <input
             id="image"
             type="file"
             accept="image/*"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            multiple
+            disabled={files.length >= MAX_PHOTOS}
+            onChange={handleFilesPicked}
             className="text-sm"
           />
+          {previews.length ? (
+            <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
+              {previews.map((src, i) => (
+                <div key={src} className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={src}
+                    alt=""
+                    className="h-20 w-full rounded-lg object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeFile(i)}
+                    aria-label="Remove photo"
+                    className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-slate-900/80 text-xs text-white"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
         <button type="submit" disabled={busy} className="btn-primary w-full">

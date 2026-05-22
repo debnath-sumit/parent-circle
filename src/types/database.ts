@@ -36,7 +36,7 @@ export interface Item {
   age_group: ItemAgeGroup;
   condition: ItemCondition | null;
   location: string | null;
-  image_url: string | null;
+  image_urls: string[];
   status: ItemStatus;
   created_at: string;
 }
@@ -47,7 +47,7 @@ export interface CommunityPost {
   category: string;
   title: string;
   body: string;
-  image_url: string | null;
+  image_urls: string[];
   tags: string[] | null;
   created_at: string;
 }

@@ -11,13 +11,20 @@ const postTypeLabels: Record<Item['post_type'], string> = {
 export function ItemCard({ item }: { item: Item }) {
   return (
     <Link href={`/give-receive/${item.id}`} className="card block hover:border-brand-200">
-      {item.image_url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={item.image_url}
-          alt={item.title}
-          className="mb-3 h-40 w-full rounded-xl object-cover"
-        />
+      {item.image_urls && item.image_urls.length > 0 ? (
+        <div className="relative mb-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={item.image_urls[0]}
+            alt={item.title}
+            className="h-40 w-full rounded-xl object-cover"
+          />
+          {item.image_urls.length > 1 ? (
+            <span className="absolute right-2 top-2 rounded-full bg-slate-900/70 px-2 py-0.5 text-xs text-white">
+              +{item.image_urls.length - 1}
+            </span>
+          ) : null}
+        </div>
       ) : (
         <div className="mb-3 grid h-40 w-full place-items-center rounded-xl bg-brand-50 text-4xl">
           🎁

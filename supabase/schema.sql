@@ -89,7 +89,7 @@ create table if not exists public.items (
   age_group text check (age_group in ('baby', 'kid', 'teen', 'any')) default 'any',
   condition text check (condition in ('new', 'like-new', 'good', 'fair')),
   location text,
-  image_url text,
+  image_urls text[] not null default '{}',
   status text not null default 'available' check (status in ('available', 'reserved', 'taken')),
   created_at timestamptz not null default now()
 );
@@ -124,7 +124,7 @@ create table if not exists public.community_posts (
   category text not null,
   title text not null,
   body text not null,
-  image_url text,
+  image_urls text[] not null default '{}',
   tags text[],
   created_at timestamptz not null default now()
 );

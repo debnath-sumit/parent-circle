@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import { PhotoGallery } from '@/components/PhotoGallery';
 import { CommentForm } from './CommentForm';
 
 export const dynamic = 'force-dynamic';
@@ -42,9 +43,13 @@ export default async function CommunityPostDetail({ params }: { params: { id: st
           <span>{new Date(post.created_at).toLocaleString()}</span>
         </div>
         <h1 className="mt-3 text-2xl font-semibold tracking-tight">{post.title}</h1>
-        {post.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={post.image_url} alt="" className="mt-3 max-h-96 w-full rounded-xl object-cover" />
+        {post.image_urls && post.image_urls.length > 0 ? (
+          <div className="mt-3">
+            <PhotoGallery
+              urls={post.image_urls}
+              heroClassName="mb-2 max-h-96 w-full rounded-xl object-cover"
+            />
+          </div>
         ) : null}
         <p className="mt-4 whitespace-pre-wrap text-sm text-slate-700">{post.body}</p>
         <p className="mt-4 text-xs text-slate-500">
