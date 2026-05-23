@@ -62,11 +62,31 @@ export function ChatThread({
           }
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'messages' },
+        (payload) => {
+          const oldId = (payload.old as { id?: string })?.id;
+          if (!oldId) return;
+          setMessages((prev) => prev.filter((p) => p.id !== oldId));
+        }
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
   }, [supabase, currentUserId, partnerId]);
+
+  async function deleteMessage(id: string) {
+    if (!window.confirm('Delete this message?')) return;
+    const prev = messages;
+    setMessages((m) => m.filter((x) => x.id !== id));
+    const { error } = await supabase.from('messages').delete().eq('id', id);
+    if (error) {
+      setMessages(prev);
+      setError(error.message);
+    }
+  }
 
   async function send(e: React.FormEvent) {
     e.preventDefault();
@@ -108,16 +128,28 @@ export function ChatThread({
                     }`}
                   >
                     <p className="whitespace-pre-wrap">{m.body}</p>
-                    <p
-                      className={`mt-1 text-[10px] ${
+                    <div
+                      className={`mt-1 flex items-center gap-2 text-[10px] ${
                         mine ? 'text-brand-100' : 'text-slate-500'
                       }`}
                     >
-                      {new Date(m.created_at).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </p>
+                      <span>
+                        {new Date(m.created_at).toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                      {mine ? (
+                        <button
+                          type="button"
+                          onClick={() => deleteMessage(m.id)}
+                          className="text-brand-100 underline-offset-2 hover:underline"
+                          aria-label="Delete message"
+                        >
+                          Delete
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                 </li>
               );

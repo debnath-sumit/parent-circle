@@ -31,6 +31,9 @@ export default async function ProfilePage() {
         initial={{
           name: profile?.name ?? '',
           city: profile?.city ?? '',
+          address: profile?.address ?? '',
+          phone: profile?.phone ?? '',
+          profileImage: profile?.profile_image ?? '',
           interests: (profile?.interests ?? []).join(', ')
         }}
       />

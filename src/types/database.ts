@@ -9,6 +9,8 @@ export interface Profile {
   name: string | null;
   email: string | null;
   city: string | null;
+  address: string | null;
+  phone: string | null;
   profile_image: string | null;
   interests: string[] | null;
   created_at: string;
@@ -20,6 +22,9 @@ export interface Child {
   parent_id: string;
   name: string;
   age_group: AgeGroup;
+  date_of_birth: string | null;
+  school: string | null;
+  photo: string | null;
   birth_year: number | null;
   birth_month: number | null;
   interests: string[] | null;

@@ -14,11 +14,17 @@ create table if not exists public.profiles (
   name text,
   email text,
   city text,
+  address text,
+  phone text,
   profile_image text,
   interests text[],
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- For projects upgrading from an earlier schema.
+alter table public.profiles add column if not exists address text;
+alter table public.profiles add column if not exists phone text;
 
 alter table public.profiles enable row level security;
 
@@ -60,11 +66,19 @@ create table if not exists public.children (
   parent_id uuid not null references public.profiles(id) on delete cascade,
   name text not null,
   age_group text check (age_group in ('baby', 'kid', 'teen')) not null,
+  date_of_birth date,
+  school text,
+  photo text,
   birth_year int,
   birth_month int,
   interests text[],
   created_at timestamptz not null default now()
 );
+
+-- For projects upgrading from an earlier schema.
+alter table public.children add column if not exists date_of_birth date;
+alter table public.children add column if not exists school text;
+alter table public.children add column if not exists photo text;
 
 alter table public.children enable row level security;
 
@@ -229,6 +243,10 @@ create policy "Receiver can mark read"
   on public.messages for update
   using (auth.uid() = receiver_id)
   with check (auth.uid() = receiver_id);
+
+drop policy if exists "Sender can delete message" on public.messages;
+create policy "Sender can delete message"
+  on public.messages for delete using (auth.uid() = sender_id);
 
 -- =========================================================================
 -- STORAGE BUCKETS

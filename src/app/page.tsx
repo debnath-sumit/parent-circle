@@ -42,9 +42,25 @@ export default async function HomePage() {
   return (
     <div className="space-y-8">
       <header className="rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 p-6 text-white shadow-md">
-        <p className="text-sm font-medium text-brand-100">Welcome back</p>
-        <h1 className="mt-1 text-2xl font-semibold">Hi {greetingName} 👋</h1>
-        <p className="mt-2 max-w-xl text-sm text-brand-50">
+        <div className="flex items-center gap-4">
+          <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-white/20 ring-2 ring-white/40">
+            {profile?.profile_image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={profile.profile_image}
+                alt={greetingName}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-2xl">👤</div>
+            )}
+          </div>
+          <div>
+            <p className="text-sm font-medium text-brand-100">Welcome back</p>
+            <h1 className="mt-1 text-2xl font-semibold">Hi {greetingName} 👋</h1>
+          </div>
+        </div>
+        <p className="mt-3 max-w-xl text-sm text-brand-50">
           Parents helping parents grow together. Find a play date, give a stroller a new home,
           or get advice from a fellow parent.
         </p>

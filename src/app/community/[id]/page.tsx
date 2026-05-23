@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { PhotoGallery } from '@/components/PhotoGallery';
+import { DeleteRecordButton } from '@/components/DeleteRecordButton';
 import { CommentForm } from './CommentForm';
 
 export const dynamic = 'force-dynamic';
@@ -52,10 +53,21 @@ export default async function CommunityPostDetail({ params }: { params: { id: st
           </div>
         ) : null}
         <p className="mt-4 whitespace-pre-wrap text-sm text-slate-700">{post.body}</p>
-        <p className="mt-4 text-xs text-slate-500">
-          By {author?.name ?? 'A parent'}
-          {author?.city ? ` · ${author.city}` : ''}
-        </p>
+        <div className="mt-4 flex items-center justify-between">
+          <p className="text-xs text-slate-500">
+            By {author?.name ?? 'A parent'}
+            {author?.city ? ` · ${author.city}` : ''}
+          </p>
+          {user?.id === post.author_id ? (
+            <DeleteRecordButton
+              table="community_posts"
+              id={post.id}
+              redirectTo="/community"
+              confirmText="Delete this post? This can't be undone."
+              label="Delete post"
+            />
+          ) : null}
+        </div>
       </article>
 
       <section className="space-y-3">

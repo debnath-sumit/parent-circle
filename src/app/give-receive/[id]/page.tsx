@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { PhotoGallery } from '@/components/PhotoGallery';
+import { DeleteRecordButton } from '@/components/DeleteRecordButton';
 import { ItemComments } from './ItemComments';
 
 export const dynamic = 'force-dynamic';
@@ -99,7 +100,22 @@ export default async function ItemDetailPage({ params }: { params: { id: string 
               {isRequest ? 'I have this — message' : 'Message'}
             </Link>
           ) : null}
-          {isOwner ? <span className="chip">Your post</span> : null}
+          {isOwner ? (
+            <div className="flex items-center gap-3">
+              <span className="chip">Your post</span>
+              <DeleteRecordButton
+                table="items"
+                id={item.id}
+                redirectTo="/give-receive"
+                confirmText={
+                  isRequest
+                    ? 'Delete this request? This can’t be undone.'
+                    : 'Delete this listing? This can’t be undone.'
+                }
+                label="Delete"
+              />
+            </div>
+          ) : null}
         </div>
       </div>
 
