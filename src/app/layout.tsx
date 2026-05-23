@@ -16,12 +16,22 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     data: { user }
   } = await supabase.auth.getUser();
 
+  let unreadMessages = 0;
+  if (user) {
+    const { count } = await supabase
+      .from('messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('receiver_id', user.id)
+      .is('read_at', null);
+    unreadMessages = count ?? 0;
+  }
+
   return (
     <html lang="en">
       <body className="min-h-screen pb-24">
-        <TopBar isAuthed={Boolean(user)} />
+        <TopBar isAuthed={Boolean(user)} unreadMessages={unreadMessages} />
         <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
-        {user ? <BottomNav /> : null}
+        {user ? <BottomNav unreadMessages={unreadMessages} /> : null}
       </body>
     </html>
   );

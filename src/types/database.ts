@@ -67,6 +67,7 @@ export interface Message {
   sender_id: string;
   receiver_id: string;
   body: string;
+  read_at: string | null;
   created_at: string;
 }
 

@@ -201,11 +201,18 @@ create table if not exists public.messages (
   sender_id uuid not null references public.profiles(id) on delete cascade,
   receiver_id uuid not null references public.profiles(id) on delete cascade,
   body text not null,
+  read_at timestamptz,
   created_at timestamptz not null default now()
 );
 
+-- For projects upgrading from an earlier schema without read_at.
+alter table public.messages add column if not exists read_at timestamptz;
+
 create index if not exists messages_sender_idx on public.messages(sender_id);
 create index if not exists messages_receiver_idx on public.messages(receiver_id);
+create index if not exists messages_receiver_unread_idx
+  on public.messages(receiver_id)
+  where read_at is null;
 
 alter table public.messages enable row level security;
 
@@ -216,6 +223,12 @@ create policy "Participants can read messages"
 drop policy if exists "Sender can insert message" on public.messages;
 create policy "Sender can insert message"
   on public.messages for insert with check (auth.uid() = sender_id);
+
+drop policy if exists "Receiver can mark read" on public.messages;
+create policy "Receiver can mark read"
+  on public.messages for update
+  using (auth.uid() = receiver_id)
+  with check (auth.uid() = receiver_id);
 
 -- =========================================================================
 -- STORAGE BUCKETS

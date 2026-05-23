@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import type { Message } from '@/types/database';
 
@@ -13,6 +14,7 @@ export function ChatThread({
   partnerId: string;
   initialMessages: Message[];
 }) {
+  const router = useRouter();
   const supabase = createClient();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [body, setBody] = useState('');
@@ -23,6 +25,26 @@ export function ChatThread({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function markRead() {
+      const { data } = await supabase
+        .from('messages')
+        .update({ read_at: new Date().toISOString() })
+        .eq('receiver_id', currentUserId)
+        .eq('sender_id', partnerId)
+        .is('read_at', null)
+        .select('id');
+      if (!cancelled && data && data.length > 0) {
+        router.refresh();
+      }
+    }
+    markRead();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase, router, currentUserId, partnerId, messages.length]);
 
   useEffect(() => {
     const channel = supabase
