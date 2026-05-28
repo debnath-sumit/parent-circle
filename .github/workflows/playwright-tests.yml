@@ -25,19 +25,15 @@ jobs:
 
       - name: Docker Build
         run: |
-          docker build \
-            --build-arg NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} \
-            --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} \
-            -t parent-circle-app .
+          docker build
+          -t parent-circle-app .
 
       - name: Run Docker Container
         run: |
-          docker run -d \
-            -p 3001:3000 \
-            --name parent-circle-app \
-            -e NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} \
-            -e NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} \
-            parent-circle-app
+          docker run -d
+          -p 3001:3000
+          --name parent-circle-app
+          parent-circle-app
 
       - name: Wait for App to be Ready
         run: |
@@ -62,15 +58,8 @@ jobs:
 
       - name: Run Playwright Tests
         working-directory: parent-circle-test
-        run: |
-          mvn clean test \
-            -Dbase.url=http://localhost:3001 \
-            -Dbrowser=chromium \
-            -Dtest.email=${{ secrets.TEST_EMAIL }} \
-            -Dtest.password=${{ secrets.TEST_PASSWORD }}
+        run: mvn clean test -Dbase.url=http://localhost:3001 -Dbrowser=chromium
 
-      - name: Upload Test Report
-        # NEW - v4
       - name: Upload Test Report
         if: always()
         uses: actions/upload-artifact@v4
