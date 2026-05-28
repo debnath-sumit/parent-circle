@@ -11,22 +11,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1 - Checkout app code
       - name: Checkout App Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # Step 2 - Install app dependencies
       - name: Install App Dependencies
         run: npm install
 
-      # Step 3 - Build the app
       - name: Build Application
         run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
-      # Step 4 - Build Docker image
       - name: Docker Build
         run: |
           docker build \
@@ -34,7 +30,6 @@ jobs:
             --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} \
             -t parent-circle-app .
 
-      # Step 5 - Run Docker container
       - name: Run Docker Container
         run: |
           docker run -d \
@@ -44,7 +39,6 @@ jobs:
             -e NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} \
             parent-circle-app
 
-      # Step 6 - Wait for app to be ready
       - name: Wait for App to be Ready
         run: |
           echo 'Waiting for app to start...'
@@ -54,21 +48,18 @@ jobs:
             sleep 5
           done
 
-      # Step 7 - Checkout test project
       - name: Checkout Test Project
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: debnath-sumit/parent-circle-test
           path: parent-circle-test
 
-      # Step 8 - Setup Java
       - name: Set up Java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      # Step 9 - Run Playwright Tests
       - name: Run Playwright Tests
         working-directory: parent-circle-test
         run: |
@@ -78,7 +69,6 @@ jobs:
             -Dtest.email=${{ secrets.TEST_EMAIL }} \
             -Dtest.password=${{ secrets.TEST_PASSWORD }}
 
-      # Step 10 - Upload test report
       - name: Upload Test Report
         # NEW - v4
       - name: Upload Test Report
