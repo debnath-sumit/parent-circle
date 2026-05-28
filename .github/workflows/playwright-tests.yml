@@ -1,0 +1,87 @@
+name: Build and Run Playwright Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1 - Checkout app code
+      - name: Checkout App Code
+        uses: actions/checkout@v3
+
+      # Step 2 - Install app dependencies
+      - name: Install App Dependencies
+        run: npm install
+
+      # Step 3 - Build the app
+      - name: Build Application
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
+      # Step 4 - Build Docker image
+      - name: Docker Build
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} \
+            --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} \
+            -t parent-circle-app .
+
+      # Step 5 - Run Docker container
+      - name: Run Docker Container
+        run: |
+          docker run -d \
+            -p 3001:3000 \
+            --name parent-circle-app \
+            -e NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }} \
+            -e NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }} \
+            parent-circle-app
+
+      # Step 6 - Wait for app to be ready
+      - name: Wait for App to be Ready
+        run: |
+          echo 'Waiting for app to start...'
+          for i in $(seq 1 20); do
+            curl -s http://localhost:3001 && echo 'App is up!' && break
+            echo "Attempt $i - not ready yet..."
+            sleep 5
+          done
+
+      # Step 7 - Checkout test project
+      - name: Checkout Test Project
+        uses: actions/checkout@v3
+        with:
+          repository: debnath-sumit/parent-circle-test
+          path: parent-circle-test
+
+      # Step 8 - Setup Java
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # Step 9 - Run Playwright Tests
+      - name: Run Playwright Tests
+        working-directory: parent-circle-test
+        run: |
+          mvn clean test \
+            -Dbase.url=http://localhost:3001 \
+            -Dbrowser=chromium \
+            -Dtest.email=${{ secrets.TEST_EMAIL }} \
+            -Dtest.password=${{ secrets.TEST_PASSWORD }}
+
+      # Step 10 - Upload test report
+      - name: Upload Test Report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: playwright-test-report
+          path: parent-circle-test/target/surefire-reports/
