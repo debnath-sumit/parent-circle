@@ -80,8 +80,10 @@ jobs:
 
       # Step 10 - Upload test report
       - name: Upload Test Report
+        # NEW - v4
+      - name: Upload Test Report
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: playwright-test-report
           path: parent-circle-test/target/surefire-reports/
