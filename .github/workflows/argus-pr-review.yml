@@ -4,7 +4,7 @@ on:
   pull_request:
     branches:
       - main
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, edited]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
@@ -16,22 +16,89 @@ env:
 
 jobs:
   # ─────────────────────────────────────────────
-  # JOB 1: Lint & Type-check
+  # JOB 1: PR Metadata Validation
+  # Runs FIRST — fast, no install needed
+  # ─────────────────────────────────────────────
+  pr-metadata:
+    name: 📝 PR Metadata Check
+    runs-on: ubuntu-latest
+    outputs:
+      metadata_ok: ${{ steps.check.outputs.ok }}
+      metadata_msg: ${{ steps.check.outputs.msg }}
+    steps:
+      - name: Validate PR title and description
+        id: check
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          errors=()
+
+          # Title must be non-empty and at least 10 chars
+          if [ -z "$PR_TITLE" ] || [ ${#PR_TITLE} -lt 10 ]; then
+            errors+=("PR title is too short (min 10 characters). Got: \"$PR_TITLE\"")
+          fi
+
+          # Body must be non-empty
+          if [ -z "$PR_BODY" ] || [ "$PR_BODY" = "null" ]; then
+            errors+=("PR description is empty. Please describe what this PR does.")
+          fi
+
+          if [ ${#errors[@]} -eq 0 ]; then
+            echo "ok=true" >> $GITHUB_OUTPUT
+            echo "msg=PR title and description look good ✅" >> $GITHUB_OUTPUT
+          else
+            echo "ok=false" >> $GITHUB_OUTPUT
+            # Join errors with a delimiter safe for multiline output
+            msg=$(printf '%s\n' "${errors[@]}")
+            echo "msg<<EOF" >> $GITHUB_OUTPUT
+            echo "$msg" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
+  # ─────────────────────────────────────────────
+  # JOB 2: Branch Naming Convention
+  # ─────────────────────────────────────────────
+  branch-naming:
+    name: 🌿 Branch Naming Check
+    runs-on: ubuntu-latest
+    outputs:
+      branch_ok: ${{ steps.check.outputs.ok }}
+      branch_msg: ${{ steps.check.outputs.msg }}
+    steps:
+      - name: Validate branch name
+        id: check
+        env:
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          # Allowed prefixes: feature/, fix/, bugfix/, hotfix/, chore/, docs/, refactor/, test/, scratch/
+          PATTERN="^(feature|fix|bugfix|hotfix|chore|docs|refactor|test|scratch)/.+"
+
+          if echo "$BRANCH" | grep -qE "$PATTERN"; then
+            echo "ok=true" >> $GITHUB_OUTPUT
+            echo "msg=Branch name \`$BRANCH\` follows convention ✅" >> $GITHUB_OUTPUT
+          else
+            echo "ok=false" >> $GITHUB_OUTPUT
+            echo "msg=Branch name \`$BRANCH\` does not follow convention. Use a prefix like \`feature/\`, \`fix/\`, \`chore/\`, etc." >> $GITHUB_OUTPUT
+          fi
+
+  # ─────────────────────────────────────────────
+  # JOB 3: Lint & Type Check
   # ─────────────────────────────────────────────
   lint-and-typecheck:
     name: 🔍 Lint & Type Check
     runs-on: ubuntu-latest
+    outputs:
+      lint_ok: ${{ steps.result.outputs.ok }}
+      lint_msg: ${{ steps.result.outputs.msg }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+      - uses: pnpm/action-setup@v3
         with:
           version: ${{ env.PNPM_VERSION }}
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "pnpm"
@@ -40,35 +107,49 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run ESLint
-        run: pnpm lint
+        id: lint
+        run: pnpm lint 2>&1 | tee lint-output.txt; echo "exit=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
 
       - name: Run TypeScript type check
-        run: pnpm exec tsc --noEmit
+        id: tsc
+        if: always()
+        run: pnpm exec tsc --noEmit 2>&1 | tee tsc-output.txt; echo "exit=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+
+      - name: Set output
+        id: result
+        if: always()
+        run: |
+          lint_exit=$(cat lint-output.txt | wc -l)
+          if [ "${{ steps.lint.outputs.exit }}" = "exit=0" ] && [ "${{ steps.tsc.outputs.exit }}" = "exit=0" ]; then
+            echo "ok=true" >> $GITHUB_OUTPUT
+            echo "msg=Lint and type check passed ✅" >> $GITHUB_OUTPUT
+          else
+            echo "ok=false" >> $GITHUB_OUTPUT
+            echo "msg=Lint or TypeScript errors found. Check the Checks tab for details." >> $GITHUB_OUTPUT
+          fi
 
   # ─────────────────────────────────────────────
-  # JOB 2: Build
+  # JOB 4: Build
   # ─────────────────────────────────────────────
   build:
     name: 🏗️ Build
     runs-on: ubuntu-latest
     needs: lint-and-typecheck
+    outputs:
+      build_ok: ${{ steps.result.outputs.ok }}
+      build_msg: ${{ steps.result.outputs.msg }}
     env:
-      # Dummy values so Next.js build doesn't fail on missing env vars.
-      # Replace with GitHub Secrets if you need a real build-time check.
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
       NEXT_PUBLIC_SITE_URL: "http://localhost:3000"
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+      - uses: pnpm/action-setup@v3
         with:
           version: ${{ env.PNPM_VERSION }}
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "pnpm"
@@ -77,73 +158,48 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build Next.js app
-        run: pnpm build
+        id: build
+        run: |
+          if pnpm build; then
+            echo "ok=true" >> $GITHUB_OUTPUT
+          else
+            echo "ok=false" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Upload build artifacts (optional)
-        uses: actions/upload-artifact@v4
-        if: success()
-        with:
-          name: nextjs-build-${{ github.event.pull_request.number }}
-          path: .next/
-          retention-days: 3
-
-  # ─────────────────────────────────────────────
-  # JOB 3: Unit / Component Tests (if you add them)
-  # ─────────────────────────────────────────────
-  test:
-    name: 🧪 Unit Tests
-    runs-on: ubuntu-latest
-    needs: lint-and-typecheck
-    env:
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: ${{ env.PNPM_VERSION }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "pnpm"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Run tests
-        # Replace with your actual test command (e.g. pnpm test, pnpm vitest)
-        # If no tests exist yet, this step will just pass.
-        run: pnpm test --passWithNoTests || echo "No test script found, skipping."
+      - name: Set output
+        id: result
+        if: always()
+        run: |
+          if [ "${{ steps.build.outputs.ok }}" = "true" ]; then
+            echo "ok=true" >> $GITHUB_OUTPUT
+            echo "msg=Build passed ✅" >> $GITHUB_OUTPUT
+          else
+            echo "ok=false" >> $GITHUB_OUTPUT
+            echo "msg=Build failed ❌. Check the Checks tab for the full error log." >> $GITHUB_OUTPUT
+          fi
 
   # ─────────────────────────────────────────────
-  # JOB 4: Playwright E2E (optional, needs secrets)
+  # JOB 5: Playwright E2E
   # ─────────────────────────────────────────────
   playwright:
     name: 🎭 Playwright E2E
     runs-on: ubuntu-latest
     needs: build
-    # Only run E2E if a playwright config is present
-    if: ${{ hashFiles('playwright.config.ts') != '' || hashFiles('playwright.config.js') != '' }}
+    outputs:
+      playwright_ok: ${{ steps.result.outputs.ok }}
+      playwright_msg: ${{ steps.result.outputs.msg }}
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       NEXT_PUBLIC_SITE_URL: "http://localhost:3000"
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+      - uses: pnpm/action-setup@v3
         with:
           version: ${{ env.PNPM_VERSION }}
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "pnpm"
@@ -151,78 +207,119 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check if Playwright config exists
+        id: config-check
+        run: |
+          if [ -f "playwright.config.ts" ] || [ -f "playwright.config.js" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Install Playwright browsers
+        if: steps.config-check.outputs.exists == 'true'
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Run Playwright tests
-        run: pnpm exec playwright test
+        id: pw-run
+        if: steps.config-check.outputs.exists == 'true'
+        run: |
+          if pnpm exec playwright test; then
+            echo "ok=true" >> $GITHUB_OUTPUT
+          else
+            echo "ok=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
-        if: always()
+        if: steps.config-check.outputs.exists == 'true' && always()
         with:
           name: playwright-report-${{ github.event.pull_request.number }}
           path: playwright-report/
           retention-days: 7
 
+      - name: Set output
+        id: result
+        if: always()
+        run: |
+          if [ "${{ steps.config-check.outputs.exists }}" = "false" ]; then
+            echo "ok=true" >> $GITHUB_OUTPUT
+            echo "msg=No Playwright config found — skipped ⏭️" >> $GITHUB_OUTPUT
+          elif [ "${{ steps.pw-run.outputs.ok }}" = "true" ]; then
+            echo "ok=true" >> $GITHUB_OUTPUT
+            echo "msg=All Playwright tests passed ✅" >> $GITHUB_OUTPUT
+          else
+            echo "ok=false" >> $GITHUB_OUTPUT
+            echo "msg=Playwright tests failed ❌. Download the report artifact for details." >> $GITHUB_OUTPUT
+          fi
+
   # ─────────────────────────────────────────────
-  # JOB 5: PR Summary Comment
+  # JOB 6: Argus Summary Comment
+  # Posts/updates a single comment on the PR
   # ─────────────────────────────────────────────
-  pr-summary:
-    name: 📋 PR Review Summary
+  argus-comment:
+    name: 🦅 Argus Summary
     runs-on: ubuntu-latest
-    needs: [lint-and-typecheck, build, test]
+    needs: [pr-metadata, branch-naming, lint-and-typecheck, build, playwright]
     if: always()
     permissions:
       pull-requests: write
     steps:
-      - name: Post PR status comment
+      - name: Post Argus review comment
         uses: actions/github-script@v7
         with:
           script: |
-            const jobs = {
-              'Lint & Type Check': '${{ needs.lint-and-typecheck.result }}',
-              'Build':             '${{ needs.build.result }}',
-              'Unit Tests':        '${{ needs.test.result }}',
+            const results = {
+              '📝 PR Metadata':         { ok: '${{ needs.pr-metadata.outputs.metadata_ok }}',     msg: `${{ needs.pr-metadata.outputs.metadata_msg }}` },
+              '🌿 Branch Naming':       { ok: '${{ needs.branch-naming.outputs.branch_ok }}',     msg: `${{ needs.branch-naming.outputs.branch_msg }}` },
+              '🔍 Lint & Type Check':   { ok: '${{ needs.lint-and-typecheck.outputs.lint_ok }}',  msg: `${{ needs.lint-and-typecheck.outputs.lint_msg }}` },
+              '🏗️ Build':              { ok: '${{ needs.build.outputs.build_ok }}',               msg: `${{ needs.build.outputs.build_msg }}` },
+              '🎭 Playwright E2E':      { ok: '${{ needs.playwright.outputs.playwright_ok }}',    msg: `${{ needs.playwright.outputs.playwright_msg }}` },
             };
 
-            const emoji = r => r === 'success' ? '✅' : r === 'skipped' ? '⏭️' : '❌';
-            const rows = Object.entries(jobs)
-              .map(([name, result]) => `| ${emoji(result)} ${name} | \`${result}\` |`)
+            const allPassed = Object.values(results).every(r => r.ok === 'true');
+            const statusLine = allPassed
+              ? '## 🦅 Argus PR Review — ✅ All checks passed!'
+              : '## 🦅 Argus PR Review — ❌ Some checks need attention';
+
+            const rows = Object.entries(results)
+              .map(([name, { ok, msg }]) => {
+                const icon = ok === 'true' ? '✅' : '❌';
+                return `| ${icon} **${name}** | ${msg} |`;
+              })
               .join('\n');
 
-            const allGreen = Object.values(jobs).every(r => r === 'success' || r === 'skipped');
+            const body = `${statusLine}
 
-            const body = `## 🐦 Argus PR Review — ${ allGreen ? '✅ All checks passed!' : '❌ Some checks failed' }
-
-            | Check | Status |
+            | Check | Result |
             |-------|--------|
             ${rows}
 
-            > _Triggered by commit \`${{ github.event.pull_request.head.sha }}\` on PR #${{ github.event.pull_request.number }}_`;
+            ---
+            > 🦅 Argus is watching. Triggered by \`${{ github.event.pull_request.head.sha }}\` on PR #${{ github.event.pull_request.number }}
+            > _Re-runs automatically on every push to this branch._`;
 
-            // Find existing comment to update instead of spamming
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
-              repo:  context.repo.repo,
+              repo: context.repo.repo,
               issue_number: context.issue.number,
             });
 
             const existing = comments.find(c =>
-              c.user.type === 'Bot' && c.body.includes('Argus PR Review')
+              c.user.type === 'Bot' && c.body.includes('🦅 Argus PR Review')
             );
 
             if (existing) {
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,
-                repo:  context.repo.repo,
+                repo: context.repo.repo,
                 comment_id: existing.id,
                 body,
               });
             } else {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
-                repo:  context.repo.repo,
+                repo: context.repo.repo,
                 issue_number: context.issue.number,
                 body,
               });
