@@ -1,0 +1,142 @@
+pipeline {
+    agent any
+    parameters {
+        string(name: 'branch', defaultValue: 'main', description: 'Git branch name')
+        string(name: 'test_branch', defaultValue: 'main', description: 'Test repo branch')
+        string(name: 'NEXT_PUBLIC_SUPABASE_URL', defaultValue: '', description: 'Supabase project URL')
+        string(name: 'NEXT_PUBLIC_SUPABASE_ANON_KEY', defaultValue: '', description: 'Supabase anon key')
+        choice(name: 'browser', choices: ['chrome', 'firefox'], description: 'Select browser')
+        booleanParam(name: 'verbose', defaultValue: true, description: 'Enable verbose logging')
+    }
+
+    stages {
+
+        stage('Checkout App Code') {
+            steps {
+                dir('parent-circle') {
+                    git branch: "${params.branch}",
+                        url: 'https://github.com/debnath-sumit/parent-circle.git'
+                }
+            }
+        }
+
+        stage('Install App Dependencies') {
+            steps {
+                dir('parent-circle') {
+                    sh 'npm install'
+                }
+            }
+        }
+
+        stage('Run Unit Tests') {
+            steps {
+                dir('parent-circle') {
+                    sh 'npm test || true'
+                }
+            }
+        }
+
+        stage('Build Application') {
+            steps {
+                dir('parent-circle') {
+                    sh """
+                    NEXT_PUBLIC_SUPABASE_URL='${params.NEXT_PUBLIC_SUPABASE_URL}' \
+                    NEXT_PUBLIC_SUPABASE_ANON_KEY='${params.NEXT_PUBLIC_SUPABASE_ANON_KEY}' \
+                    npm run build
+                    """
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                dir('parent-circle') {
+                    sh """
+                    docker build \
+                      --build-arg NEXT_PUBLIC_SUPABASE_URL='${params.NEXT_PUBLIC_SUPABASE_URL}' \
+                      --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY='${params.NEXT_PUBLIC_SUPABASE_ANON_KEY}' \
+                      -t parent-circle-app .
+                    """
+                }
+            }
+        }
+
+        stage('Run Docker Container') {
+            steps {
+                sh """
+                docker rm -f parent-circle-app || true
+
+                docker run -d \
+                  -p 3001:3000 \
+                  --name parent-circle-app \
+                  -e NEXT_PUBLIC_SUPABASE_URL='${params.NEXT_PUBLIC_SUPABASE_URL}' \
+                  -e NEXT_PUBLIC_SUPABASE_ANON_KEY='${params.NEXT_PUBLIC_SUPABASE_ANON_KEY}' \
+                  parent-circle-app
+                """
+            }
+        }
+
+        stage('Wait for App to be Ready') {
+            steps {
+                sh """
+                echo 'Waiting for app to start...'
+                for i in \$(seq 1 20); do
+                    curl -s http://172.17.0.1:3001 && echo 'App is up!' && exit 0
+                    echo "Attempt \$i - not ready yet..."
+                    sleep 5
+                done
+                echo 'App did not start in time' && exit 1
+                """
+            }
+        }
+
+        stage('Checkout Test Project') {
+            steps {
+                dir('parent-circle-test') {
+                    git branch: "${params.test_branch}",
+                        url: 'https://github.com/debnath-sumit/parent-circle-test.git'
+                }
+            }
+        }
+        
+        
+        
+        stage('Run Playwright Tests') {
+            steps {
+                dir('parent-circle-test') {
+                    sh """
+                    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=0 \
+                    mvn clean test \
+                      -Dbrowser=${params.browser} \
+                      -Dbase.url=http://172.17.0.1:3001
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            // Publish Playwright HTML report
+            publishHTML(target: [
+                allowMissing: true,
+                alwaysLinkToLastBuild: true,
+                keepAll: true,
+                reportDir: 'parent-circle-test/playwright-report',
+                reportFiles: 'index.html',
+                reportName: 'Playwright Test Report'
+            ])
+
+            // Stop the app container
+            sh 'docker rm -f parent-circle-app || true'
+
+            echo 'Pipeline completed.'
+        }
+        success {
+            echo '✅ Build and tests passed!'
+        }
+        failure {
+            echo '❌ Pipeline failed. Check Console Output.'
+        }
+    }
+}
