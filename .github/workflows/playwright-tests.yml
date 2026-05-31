@@ -32,7 +32,7 @@ jobs:
             --build-arg NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL \
             --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY=$SUPABASE_KEY \
             -t parent-circle-app .
-      
+
       - name: Run Docker Container
         env:
           SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -66,13 +66,11 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      # ✅ THIS IS WHAT YOU WERE MISSING
+      - name: Install Playwright Browser + System Dependencies
+        working-directory: parent-circle-test
+        run: mvn exec:java -e -D exec.mainClass=com.microsoft.playwright.CLI -D exec.args="install --with-deps chromium"
+
       - name: Run Playwright Tests
         working-directory: parent-circle-test
-        run: mvn clean test -Dbase.url=http://localhost:3001 -Dbrowser=chromium
-
-      - name: Upload Test Report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-test-report
-          path: parent-circle-test/target/surefire-reports/
+        run: mvn
