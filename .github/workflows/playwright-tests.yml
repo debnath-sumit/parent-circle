@@ -14,11 +14,22 @@ jobs:
       - name: Checkout App Code
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
       - name: Install App Dependencies
-        run: npm install
+        run: pnpm install
 
       - name: Build Application
-        run: npm run build
+        run: pnpm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
@@ -66,10 +77,16 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # ✅ Use npx instead — Node is already available on the runner
       - name: Install Playwright Browser + System Dependencies
         run: npx playwright install --with-deps chromium
 
       - name: Run Playwright Tests
         working-directory: parent-circle-test
         run: mvn clean test -Dbase.url=http://localhost:3001 -Dbrowser=chromium
+
+      - name: Upload Test Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-report
+          path: parent-circle-test/target/surefire-reports/
