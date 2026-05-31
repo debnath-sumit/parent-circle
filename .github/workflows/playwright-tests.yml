@@ -66,11 +66,10 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # ✅ THIS IS WHAT YOU WERE MISSING
+      # ✅ Use npx instead — Node is already available on the runner
       - name: Install Playwright Browser + System Dependencies
-        working-directory: parent-circle-test
-        run: mvn exec:java -e -D exec.mainClass=com.microsoft.playwright.CLI -D exec.args="install --with-deps chromium"
+        run: npx playwright install --with-deps chromium
 
       - name: Run Playwright Tests
         working-directory: parent-circle-test
-        run: mvn
+        run: mvn clean test -Dbase.url=http://localhost:3001 -Dbrowser=chromium
