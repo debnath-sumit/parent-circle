@@ -79,7 +79,7 @@ jobs:
 
       - name: Run Playwright Tests
         working-directory: parent-circle-test
-        run: mvn clean test -Dbase.url=http://localhost:3001 -Dbrowser=chromium
+        run: mvn clean test -e -Dbase.url=http://localhost:3001 -Dbrowser=chromium
 
       - name: Upload Test Report
         if: always()
