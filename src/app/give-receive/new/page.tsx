@@ -279,7 +279,7 @@ export default function NewItemPage() {
             </div>
             {postType === 'request' ? (
               <p className="mt-1 text-xs text-slate-500">
-                Tell community members your budget, or leave blank if you're hoping for a giveaway.
+                Tell community members your budget, or leave blank if you&apos;re hoping for a giveaway.
               </p>
             ) : null}
           </div>
